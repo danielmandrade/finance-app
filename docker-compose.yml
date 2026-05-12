@@ -1,0 +1,36 @@
+services:
+  backend:
+    build: ./backend
+    # porta 3001 não exposta externamente — nginx é o único ponto de entrada
+    expose:
+      - "3001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=file:/app/data/finance.db
+      - NODE_ENV=production
+      - PORT=3001
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app
+
+networks:
+  app:
+    driver: bridge

@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  color        String        @default("#888888")
+  icon         String        @default("tag")
+  transactions Transaction[]
+  recurring    Recurring[]
+  rules        Rule[]
+  createdAt    DateTime      @default(now())
+}
+
+model Transaction {
+  id          Int       @id @default(autoincrement())
+  date        DateTime
+  description String
+  amount      Float
+  categoryId  Int?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  source      String    @default("manual")
+  sourceRef   String?
+  notes       String?
+  spendingType String?  // 'essential' | 'non_essential' | 'discretionary'
+  createdAt   DateTime  @default(now())
+
+  @@index([date])
+  @@index([sourceRef])
+}
+
+model Recurring {
+  id          Int       @id @default(autoincrement())
+  description String
+  amount      Float
+  categoryId  Int?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  frequency   String
+  dayOfMonth  Int?
+  startDate   DateTime
+  endDate     DateTime?
+  active       Boolean   @default(true)
+  spendingType String?
+  createdAt    DateTime  @default(now())
+}
+
+model Rule {
+  id           Int      @id @default(autoincrement())
+  pattern      String
+  categoryId   Int
+  category     Category @relation(fields: [categoryId], references: [id])
+  spendingType String?  // 'essential' | 'non_essential' | 'discretionary'
+  priority     Int      @default(0)
+  createdAt    DateTime @default(now())
+}
