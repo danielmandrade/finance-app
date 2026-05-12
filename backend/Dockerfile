@@ -1,4 +1,5 @@
 FROM node:20-slim AS builder
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY package*.json ./
@@ -13,6 +14,7 @@ RUN npm run build
 
 # ---- runtime ----
 FROM node:20-slim
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # copia tudo do builder — garante que o cliente Prisma e as engines estão corretos
