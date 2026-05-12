@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
 
 COPY package*.json ./
@@ -12,7 +12,7 @@ COPY src ./src
 RUN npm run build
 
 # ---- runtime ----
-FROM node:20-alpine
+FROM node:20-slim
 WORKDIR /app
 
 # copia tudo do builder — garante que o cliente Prisma e as engines estão corretos
