@@ -104,7 +104,7 @@ export default function Transactions() {
         amount: form.type === 'income' ? Math.abs(Number(form.amount)) : -Math.abs(Number(form.amount)),
         categoryId: form.categoryId !== 'none' ? Number(form.categoryId) : null,
         notes: form.notes || null,
-        spendingType: form.spendingType !== 'none' ? form.spendingType : null,
+        spendingType: form.spendingType !== 'none' ? form.spendingType as SpendingType : null,
       }
       if (editing) {
         await api.transactions.update(editing.id, payload)
