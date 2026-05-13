@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, List, Upload, RefreshCw, Tags, BookOpen, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, List, Upload, RefreshCw, Tags, BookOpen, Sun, Moon, PieChart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/lib/theme'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/transactions', label: 'Lançamentos', icon: List },
+  { to: '/category-report', label: 'Por categoria', icon: PieChart },
   { to: '/import', label: 'Importar CSV', icon: Upload },
   { to: '/recurring', label: 'Recorrentes', icon: RefreshCw },
   { to: '/categories', label: 'Categorias', icon: Tags },

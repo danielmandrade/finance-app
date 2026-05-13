@@ -25,12 +25,12 @@ export default async function dashboardRoute(app: FastifyInstance) {
       .reduce((sum, t) => sum + t.amount, 0)
 
     // By category
-    const byCategory: Record<string, { name: string; color: string; total: number; count: number }> = {}
+    const byCategory: Record<string, { categoryId: number | null; name: string; color: string; total: number; count: number }> = {}
     for (const t of transactions.filter((t) => t.amount < 0)) {
       const key = t.categoryId ? String(t.categoryId) : 'uncategorized'
       const name = t.category?.name || 'Sem categoria'
       const color = t.category?.color || '#888888'
-      if (!byCategory[key]) byCategory[key] = { name, color, total: 0, count: 0 }
+      if (!byCategory[key]) byCategory[key] = { categoryId: t.categoryId, name, color, total: 0, count: 0 }
       byCategory[key].total += Math.abs(t.amount)
       byCategory[key].count++
     }

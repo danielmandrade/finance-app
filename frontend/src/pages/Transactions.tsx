@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { api, Transaction, Category, SpendingType } from '@/lib/api'
 import { formatCurrency, formatDate, MONTHS } from '@/lib/utils'
+import { useMonth } from '@/lib/month-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -36,9 +37,7 @@ function SpendingBadge({ value }: { value: SpendingType | null }) {
 }
 
 export default function Transactions() {
-  const now = new Date()
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [year, setYear] = useState(now.getFullYear())
+  const { month, year, prevMonth: ctxPrev, nextMonth: ctxNext } = useMonth()
   const [items, setItems] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
@@ -91,14 +90,8 @@ export default function Transactions() {
       : <ChevronDown className="h-3.5 w-3.5" />
   }
 
-  function prevMonth() {
-    setPage(1); setSearch('')
-    if (month === 1) { setMonth(12); setYear(y => y - 1) } else setMonth(m => m - 1)
-  }
-  function nextMonth() {
-    setPage(1); setSearch('')
-    if (month === 12) { setMonth(1); setYear(y => y + 1) } else setMonth(m => m + 1)
-  }
+  function prevMonth() { setPage(1); setSearch(''); ctxPrev() }
+  function nextMonth() { setPage(1); setSearch(''); ctxNext() }
 
   function openCreate() {
     setEditing(null)

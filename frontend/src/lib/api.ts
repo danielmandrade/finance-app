@@ -38,7 +38,7 @@ export interface MonthlySummary {
   month: number; year: number; totalExpenses: number; totalIncome: number; balance: number
   transactionCount: number
   bySpendingType: { essential: number; non_essential: number; discretionary: number; unmarked: number }
-  byCategory: { name: string; color: string; total: number; count: number }[]
+  byCategory: { categoryId: number | null; name: string; color: string; total: number; count: number }[]
   dailyEvolution: { date: string; amount: number }[]
 }
 export interface YearlySummary {

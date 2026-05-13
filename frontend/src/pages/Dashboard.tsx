@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
-  LineChart, Line,
 } from 'recharts'
 import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, RefreshCw, FileDown } from 'lucide-react'
 import { generateMonthlyReport } from '@/lib/pdf'
+import { useMonth } from '@/lib/month-context'
 
 const DEFAULT_COLORS = [
   '#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6',
@@ -17,17 +17,13 @@ const DEFAULT_COLORS = [
 ]
 
 export default function Dashboard() {
-  const now = new Date()
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [year, setYear] = useState(now.getFullYear())
+  const { month, year, prevMonth, nextMonth } = useMonth()
   const [summary, setSummary] = useState<MonthlySummary | null>(null)
   const [yearly, setYearly] = useState<YearlySummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
 
-  useEffect(() => {
-    load()
-  }, [month, year])
+  useEffect(() => { load() }, [month, year])
 
   async function load() {
     setLoading(true)
@@ -43,15 +39,6 @@ export default function Dashboard() {
     }
   }
 
-  function prevMonth() {
-    if (month === 1) { setMonth(12); setYear(y => y - 1) }
-    else setMonth(m => m - 1)
-  }
-  function nextMonth() {
-    if (month === 12) { setMonth(1); setYear(y => y + 1) }
-    else setMonth(m => m + 1)
-  }
-
   async function handleGenerate() {
     setGenerating(true)
     try {
@@ -63,11 +50,25 @@ export default function Dashboard() {
     }
   }
 
-  const pieData = summary?.byCategory.map((c, i) => ({
-    name: c.name,
-    value: c.total,
-    color: c.color !== '#888888' ? c.color : DEFAULT_COLORS[i % DEFAULT_COLORS.length],
-  })) || []
+  // Agrupa categorias com < 3% do total em "Outras"
+  const pieData = (() => {
+    if (!summary || summary.byCategory.length === 0) return []
+    const grandTotal = summary.byCategory.reduce((s, c) => s + c.total, 0)
+    const main = summary.byCategory.filter((c, i) =>
+      grandTotal === 0 || (c.total / grandTotal) >= 0.03
+    )
+    const others = summary.byCategory.filter((c) =>
+      grandTotal > 0 && (c.total / grandTotal) < 0.03
+    )
+    const othersTotal = others.reduce((s, c) => s + c.total, 0)
+    const result = main.map((c, i) => ({
+      name: c.name,
+      value: c.total,
+      color: c.color !== '#888888' ? c.color : DEFAULT_COLORS[i % DEFAULT_COLORS.length],
+    }))
+    if (othersTotal > 0) result.push({ name: 'Outras', value: othersTotal, color: '#94a3b8' })
+    return result
+  })()
 
   const yearlyData = yearly?.months.map((m) => ({
     name: MONTHS[m.month - 1].slice(0, 3),
@@ -105,9 +106,9 @@ export default function Dashboard() {
 
       {loading && <p className="text-muted-foreground text-sm">Carregando...</p>}
 
-      {/* KPIs */}
       {summary && (
         <>
+          {/* KPIs */}
           <div className="grid grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground flex items-center gap-2"><TrendingDown className="h-4 w-4 text-red-500" />Despesas</CardTitle></CardHeader>
@@ -165,9 +166,18 @@ export default function Dashboard() {
                 {pieData.length === 0
                   ? <p className="text-muted-foreground text-sm">Sem dados</p>
                   : (
-                    <ResponsiveContainer width="100%" height={240}>
+                    <ResponsiveContainer width="100%" height={260}>
                       <PieChart>
-                        <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                        <Pie
+                          data={pieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
                           {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                         </Pie>
                         <Tooltip formatter={(v: number) => formatCurrency(v)} />
@@ -196,24 +206,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Evolução diária */}
-          {summary.dailyEvolution.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Evolução diária</CardTitle></CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={180}>
-                  <LineChart data={summary.dailyEvolution}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={(d) => d.slice(8)} />
-                    <YAxis tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                    <Line type="monotone" dataKey="amount" stroke="#6366f1" dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
 

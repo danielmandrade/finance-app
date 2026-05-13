@@ -16,7 +16,8 @@ export default async function transactionsRoute(app: FastifyInstance) {
       const end = new Date(Number(year), Number(month), 0, 23, 59, 59)
       where.date = { gte: start, lte: end }
     }
-    if (categoryId) where.categoryId = Number(categoryId)
+    if (categoryId === 'null') where.categoryId = null
+    else if (categoryId) where.categoryId = Number(categoryId)
     if (spendingType) where.spendingType = spendingType
     if (search) where.description = { contains: search }
 
