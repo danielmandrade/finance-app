@@ -19,17 +19,18 @@ model Category {
 }
 
 model Transaction {
-  id          Int       @id @default(autoincrement())
-  date        DateTime
-  description String
-  amount      Float
-  categoryId  Int?
-  category    Category? @relation(fields: [categoryId], references: [id])
-  source      String    @default("manual")
-  sourceRef   String?
-  notes       String?
-  spendingType String?  // 'essential' | 'non_essential' | 'discretionary'
-  createdAt   DateTime  @default(now())
+  id            Int       @id @default(autoincrement())
+  date          DateTime
+  originalDate  DateTime? // data original do extrato (preenchida em importações com data de pagamento)
+  description   String
+  amount        Float
+  categoryId    Int?
+  category      Category? @relation(fields: [categoryId], references: [id])
+  source        String    @default("manual")
+  sourceRef     String?
+  notes         String?
+  spendingType  String?   // 'essential' | 'non_essential' | 'discretionary'
+  createdAt     DateTime  @default(now())
 
   @@index([date])
   @@index([sourceRef])

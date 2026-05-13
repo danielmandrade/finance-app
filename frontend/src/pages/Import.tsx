@@ -2,62 +2,90 @@ import { useState, useRef } from 'react'
 import { api } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Upload, FileText, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, FileText, CheckCircle, AlertCircle, Calendar } from 'lucide-react'
 
 interface Preview {
-  date: string; description: string; amount: number
-  sourceRef: string; suggestedCategoryId: number | null
+  date: string
+  originalDate: string | null
+  description: string
+  amount: number
+  sourceRef: string
+  suggestedCategoryId: number | null
+  suggestedSpendingType: string | null
 }
 
 interface ImportResult { imported: number; skipped: number; errors: string[]; total: number }
 
 export default function Import() {
   const [file, setFile] = useState<File | null>(null)
+  const [paymentDate, setPaymentDate] = useState('')
   const [previews, setPreviews] = useState<Preview[]>([])
   const [result, setResult] = useState<ImportResult | null>(null)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setFile(f)
-    setResult(null)
+  async function loadPreview(f: File, pd: string) {
     setLoading(true)
     try {
-      const res = await api.import.preview(f)
+      const res = await api.import.preview(f, pd || undefined)
       setPreviews(res.items || [])
     } finally {
       setLoading(false)
     }
   }
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setFile(f)
+    setResult(null)
+    await loadPreview(f, paymentDate)
+  }
+
+  async function handlePaymentDateChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const pd = e.target.value
+    setPaymentDate(pd)
+    if (file) await loadPreview(file, pd)
+  }
+
   async function handleImport() {
     if (!file) return
     setLoading(true)
     try {
-      const res = await api.import.csv(file)
+      const res = await api.import.csv(file, paymentDate || undefined)
       setResult(res)
       setPreviews([])
       setFile(null)
+      setPaymentDate('')
       if (inputRef.current) inputRef.current.value = ''
     } finally {
       setLoading(false)
     }
   }
 
+  // Cor da badge de tipo de gasto
+  const spendingLabel: Record<string, string> = {
+    essential: 'Essencial',
+    non_essential: 'Não essencial',
+    discretionary: 'Como quiser',
+  }
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
         <h2 className="text-xl font-semibold mb-1">Importar fatura CSV</h2>
-        <p className="text-sm text-muted-foreground">Suporte a Nubank, Inter, XP e formato genérico. Duplicatas são ignoradas automaticamente.</p>
+        <p className="text-sm text-muted-foreground">
+          Suporte a Nubank, Inter, XP e formato genérico. Duplicatas são ignoradas automaticamente.
+        </p>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
+          {/* Upload */}
           <label
-            className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+            className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
             htmlFor="csv-upload"
           >
             <Upload className="h-8 w-8 text-muted-foreground mb-2" />
@@ -65,6 +93,25 @@ export default function Import() {
             <span className="text-xs text-muted-foreground mt-1">Máx. 10 MB</span>
           </label>
           <input id="csv-upload" ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+
+          {/* Data de pagamento */}
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border">
+            <Calendar className="h-4 w-4 text-muted-foreground mt-2.5 shrink-0" />
+            <div className="flex-1">
+              <label className="text-sm font-medium block mb-1">
+                Data de pagamento da fatura <span className="font-normal text-muted-foreground">(opcional)</span>
+              </label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Quando informada, todos os lançamentos são contabilizados nesta data. A data original fica registrada para consulta.
+              </p>
+              <Input
+                type="date"
+                value={paymentDate}
+                onChange={handlePaymentDateChange}
+                className="max-w-xs"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -72,14 +119,23 @@ export default function Import() {
 
       {result && (
         <Card>
-          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-500" />Importação concluída</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              Importação concluída
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <p><span className="font-medium text-green-600">{result.imported}</span> importado(s)</p>
             <p><span className="font-medium text-muted-foreground">{result.skipped}</span> duplicata(s) ignorada(s)</p>
             {result.errors.length > 0 && (
               <div className="mt-2">
-                <p className="flex items-center gap-1 text-red-500"><AlertCircle className="h-3.5 w-3.5" />{result.errors.length} erro(s)</p>
-                {result.errors.slice(0, 3).map((e, i) => <p key={i} className="text-xs text-muted-foreground ml-5">{e}</p>)}
+                <p className="flex items-center gap-1 text-red-500">
+                  <AlertCircle className="h-3.5 w-3.5" />{result.errors.length} erro(s)
+                </p>
+                {result.errors.slice(0, 3).map((e, i) => (
+                  <p key={i} className="text-xs text-muted-foreground ml-5">{e}</p>
+                ))}
               </div>
             )}
           </CardContent>
@@ -98,6 +154,14 @@ export default function Import() {
             </Button>
           </div>
 
+          {paymentDate && (
+            <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              Todos os lançamentos serão registrados em <strong className="ml-1">{formatDate(paymentDate)}</strong>.
+              A data original aparece em cinza.
+            </div>
+          )}
+
           <div className="rounded-lg border overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
@@ -105,17 +169,33 @@ export default function Import() {
                   <th className="text-left p-3 font-medium">Data</th>
                   <th className="text-left p-3 font-medium">Descrição</th>
                   <th className="text-right p-3 font-medium">Valor</th>
-                  <th className="text-left p-3 font-medium">Categoria sugerida</th>
+                  <th className="text-left p-3 font-medium">Categoria / Marcação</th>
                 </tr>
               </thead>
               <tbody>
                 {previews.map((p, i) => (
                   <tr key={i} className="border-t">
-                    <td className="p-3 text-muted-foreground whitespace-nowrap">{formatDate(p.date)}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className="font-medium">{formatDate(p.date)}</span>
+                      {p.originalDate && (
+                        <span className="block text-xs text-muted-foreground">
+                          orig: {formatDate(p.originalDate)}
+                        </span>
+                      )}
+                    </td>
                     <td className="p-3 max-w-xs truncate">{p.description}</td>
                     <td className="p-3 text-right text-red-500 font-medium">{formatCurrency(p.amount)}</td>
-                    <td className="p-3 text-xs text-muted-foreground">
-                      {p.suggestedCategoryId ? `#${p.suggestedCategoryId}` : '—'}
+                    <td className="p-3 text-xs text-muted-foreground space-y-1">
+                      {p.suggestedCategoryId ? (
+                        <span className="block">Cat #{p.suggestedCategoryId}</span>
+                      ) : (
+                        <span className="block">—</span>
+                      )}
+                      {p.suggestedSpendingType && (
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                          {spendingLabel[p.suggestedSpendingType] ?? p.suggestedSpendingType}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

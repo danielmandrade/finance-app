@@ -259,7 +259,14 @@ export default function Transactions() {
           <tbody>
             {items.map(t => (
               <tr key={t.id} className="border-t hover:bg-muted/30 transition-colors">
-                <td className="p-3 text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</td>
+                <td className="p-3 whitespace-nowrap">
+                  <span className="text-muted-foreground">{formatDate(t.date)}</span>
+                  {t.originalDate && (
+                    <span className="block text-xs text-muted-foreground/60" title="Data original do extrato">
+                      orig: {formatDate(t.originalDate)}
+                    </span>
+                  )}
+                </td>
                 <td className="p-3">
                   <div>{t.description}</div>
                   {t.notes && <div className="text-xs text-muted-foreground">{t.notes}</div>}

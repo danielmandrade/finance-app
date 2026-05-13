@@ -25,6 +25,7 @@ export interface Transaction {
   id: number; date: string; description: string; amount: number
   categoryId: number | null; category: Category | null; source: string; notes: string | null
   spendingType: SpendingType | null
+  originalDate: string | null // data original do extrato quando importado com data de pagamento
 }
 export interface Recurring {
   id: number; description: string; amount: number; categoryId: number | null
@@ -83,14 +84,16 @@ export const api = {
       request<YearlySummary>(`/dashboard/yearly?year=${year}`),
   },
   import: {
-    csv: (file: File) => {
+    csv: (file: File, paymentDate?: string) => {
       const form = new FormData()
       form.append('file', file)
+      if (paymentDate) form.append('paymentDate', paymentDate)
       return fetch(`${BASE}/import/csv`, { method: 'POST', body: form }).then((r) => r.json())
     },
-    preview: (file: File) => {
+    preview: (file: File, paymentDate?: string) => {
       const form = new FormData()
       form.append('file', file)
+      if (paymentDate) form.append('paymentDate', paymentDate)
       return fetch(`${BASE}/import/csv/preview`, { method: 'POST', body: form }).then((r) => r.json())
     },
   },
