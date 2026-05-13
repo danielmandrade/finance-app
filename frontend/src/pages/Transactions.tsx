@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { api, Transaction, Category, SpendingType } from '@/lib/api'
 import { formatCurrency, formatDate, MONTHS } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, Search, X } from 'lucide-react'
+
+type SortField = 'date' | 'description' | 'category' | 'amount'
+type SortDir   = 'asc' | 'desc'
 
 const EMPTY_FORM = {
   date: '', description: '', amount: '', categoryId: 'none',
@@ -40,6 +43,9 @@ export default function Transactions() {
   const [total, setTotal] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [filterSpending, setFilterSpending] = useState('all')
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<SortField>('date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [form, setForm] = useState(EMPTY_FORM)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [open, setOpen] = useState(false)
@@ -47,24 +53,50 @@ export default function Transactions() {
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const LIMIT = 50
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { api.categories.list().then(setCategories) }, [])
-  useEffect(() => { load() }, [month, year, page, filterSpending])
+  useEffect(() => { load() }, [month, year, page, filterSpending, sortBy, sortDir])
+
+  // debounce da busca: aguarda 350ms após parar de digitar
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => { setPage(1); load() }, 350)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [search])
 
   async function load() {
-    const params: Record<string, string | number> = { month, year, page, limit: LIMIT }
+    const params: Record<string, string | number> = { month, year, page, limit: LIMIT, sortBy, sortDir }
     if (filterSpending !== 'all') params.spendingType = filterSpending
+    if (search.trim()) params.search = search.trim()
     const res = await api.transactions.list(params)
     setItems(res.items)
     setTotal(res.total)
   }
 
-  function prevMonth() {
+  function handleSort(field: SortField) {
+    if (field === sortBy) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
     setPage(1)
+  }
+
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortBy !== field) return <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />
+    return sortDir === 'asc'
+      ? <ChevronUp className="h-3.5 w-3.5" />
+      : <ChevronDown className="h-3.5 w-3.5" />
+  }
+
+  function prevMonth() {
+    setPage(1); setSearch('')
     if (month === 1) { setMonth(12); setYear(y => y - 1) } else setMonth(m => m - 1)
   }
   function nextMonth() {
-    setPage(1)
+    setPage(1); setSearch('')
     if (month === 12) { setMonth(1); setYear(y => y + 1) } else setMonth(m => m + 1)
   }
 
@@ -222,10 +254,31 @@ export default function Transactions() {
         </Dialog>
       </div>
 
-      {/* Filtros */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">{total} lançamento(s)</span>
-        <div className="flex gap-1 ml-auto">
+      {/* Busca + filtros */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        {/* Campo de busca */}
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Buscar descrição..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8 pr-8 h-8 text-sm"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <span className="text-sm text-muted-foreground hidden sm:block">{total} lançamento(s)</span>
+
+        {/* Filtro por marcação */}
+        <div className="flex gap-1 sm:ml-auto flex-wrap">
           {[{ v: 'all', label: 'Todos' }, ...SPENDING_OPTIONS.filter(o => o.value !== 'none').map(o => ({ v: o.value, label: o.label }))].map(({ v, label }) => {
             const opt = SPENDING_OPTIONS.find(o => o.value === v)
             const active = filterSpending === v
@@ -242,17 +295,33 @@ export default function Transactions() {
           })}
         </div>
       </div>
+      <div className="text-xs text-muted-foreground sm:hidden">{total} lançamento(s)</div>
 
       {/* Tabela */}
       <div className="rounded-lg border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>
-              <th className="text-left p-3 font-medium">Data</th>
-              <th className="text-left p-3 font-medium">Descrição</th>
-              <th className="text-left p-3 font-medium">Categoria</th>
-              <th className="text-left p-3 font-medium">Marcação</th>
-              <th className="text-right p-3 font-medium">Valor</th>
+              {(
+                [
+                  { field: 'date' as SortField,        label: 'Data',      align: 'left'  },
+                  { field: 'description' as SortField, label: 'Descrição', align: 'left'  },
+                  { field: 'category' as SortField,    label: 'Categoria', align: 'left'  },
+                  { field: null,                        label: 'Marcação',  align: 'left'  },
+                  { field: 'amount' as SortField,      label: 'Valor',     align: 'right' },
+                ] as { field: SortField | null; label: string; align: string }[]
+              ).map(({ field, label, align }) => (
+                <th
+                  key={label}
+                  className={`p-3 font-medium text-${align} ${field ? 'cursor-pointer select-none hover:text-foreground' : ''}`}
+                  onClick={() => field && handleSort(field)}
+                >
+                  <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+                    {label}
+                    {field && <SortIcon field={field} />}
+                  </span>
+                </th>
+              ))}
               <th className="p-3"></th>
             </tr>
           </thead>

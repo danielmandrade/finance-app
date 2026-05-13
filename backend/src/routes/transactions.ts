@@ -3,7 +3,13 @@ import prisma from '../lib/prisma'
 
 export default async function transactionsRoute(app: FastifyInstance) {
   app.get('/', async (req) => {
-    const { month, year, categoryId, spendingType, page = '1', limit = '50' } = req.query as any
+    const {
+      month, year, categoryId, spendingType,
+      search,
+      sortBy = 'date', sortDir = 'desc',
+      page = '1', limit = '50',
+    } = req.query as any
+
     const where: any = {}
     if (month && year) {
       const start = new Date(Number(year), Number(month) - 1, 1)
@@ -12,13 +18,21 @@ export default async function transactionsRoute(app: FastifyInstance) {
     }
     if (categoryId) where.categoryId = Number(categoryId)
     if (spendingType) where.spendingType = spendingType
+    if (search) where.description = { contains: search }
+
+    const dir = sortDir === 'asc' ? 'asc' : 'desc'
+    const orderBy: any =
+      sortBy === 'category'  ? { category: { name: dir } }  :
+      sortBy === 'amount'    ? { amount: dir }               :
+      sortBy === 'description' ? { description: dir }        :
+      { date: dir }
 
     const skip = (Number(page) - 1) * Number(limit)
     const [items, total] = await Promise.all([
       prisma.transaction.findMany({
         where,
         include: { category: true },
-        orderBy: { date: 'desc' },
+        orderBy,
         skip,
         take: Number(limit),
       }),
